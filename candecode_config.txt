@@ -1,0 +1,6 @@
+{
+"candecode_config":[
+{"dataname":"发动机转速","canid":"110","datatype":1,"dataaddr":2,"length":2,"bitaddr":0,"multiplenum":1,"additionnum":0,"unit":"rpm"},
+{"dataname":"主卷扬钢丝绳张力","canid":"132","datatype":1,"dataaddr":2,"length":2,"bitaddr":0,"multiplenum":0.1,"additionnum":0,"unit":"T"}
+]
+}
