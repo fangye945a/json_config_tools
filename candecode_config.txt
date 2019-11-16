@@ -1,6 +1,8 @@
-{
-"candecode_config":[
+{"candecode_config":[
 {"dataname":"发动机转速","canid":"110","datatype":1,"dataaddr":2,"length":2,"bitaddr":0,"multiplenum":1,"additionnum":0,"unit":"rpm"},
-{"dataname":"主卷扬钢丝绳张力","canid":"132","datatype":1,"dataaddr":2,"length":2,"bitaddr":0,"multiplenum":0.1,"additionnum":0,"unit":"T"}
+{"dataname":"主卷扬钢丝绳张力","canid":"132","datatype":1,"dataaddr":2,"length":2,"bitaddr":0,"multiplenum":0.100000,"additionnum":0,"unit":"T"},
+{"dataname":"测试1","canid":"132","datatype":1,"dataaddr":2,"length":1,"bitaddr":0,"multiplenum":0.100000,"additionnum":0,"unit":"D"},
+{"dataname":"测试2","canid":"132","datatype":1,"dataaddr":1,"length":2,"bitaddr":0,"multiplenum":0.100000,"additionnum":0,"unit":"F"},
+{"dataname":"测试4","canid":"1225","datatype":1,"dataaddr":1,"length":2,"bitaddr":0,"multiplenum":0.100000,"additionnum":0,"unit":"G"}
 ]
 }

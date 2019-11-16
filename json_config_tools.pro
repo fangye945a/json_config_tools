@@ -31,3 +31,5 @@ HEADERS  += widget.h \
     cJSON.h
 
 FORMS    += widget.ui
+
+RC_ICONS  = ico.ico

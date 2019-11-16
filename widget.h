@@ -13,6 +13,7 @@
 #include <QDoubleSpinBox>
 #include <QComboBox>
 #include <QDebug>
+#include <QMessageBox>
 #include "cJSON.h"
 
 typedef struct _CONFIG_FILE
@@ -39,7 +40,8 @@ class Widget : public QWidget
 public:
     explicit Widget(QWidget *parent = 0);
     ~Widget();
-    void add_param_from_config(CONFIG_FILE *config);
+    void add_param_from_config(CONFIG_FILE *config);    //添加一行参数
+    CONFIG_FILE get_param_from_item(int row); // 获得某一行的配置信息
 
 private slots:
     void on_add_param_clicked();
@@ -56,7 +58,7 @@ private:
     Ui::Widget *ui;
     int rows;
     int cols;
-
+    QString m_filepath;
     cJSON *root;
 };
 

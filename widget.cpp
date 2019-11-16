@@ -6,9 +6,10 @@ Widget::Widget(QWidget *parent) :
     ui(new Ui::Widget)
 {
     ui->setupUi(this);
-    this->setWindowTitle("参数配置工具");
+    this->setWindowTitle("中联智能参数配置工具V1.0");
     rows = 0;
     cols = 9;
+    m_filepath.clear();
     root = NULL;
     ui->tableWidget->setRowCount(rows);
     ui->tableWidget->setColumnCount(cols);
@@ -106,9 +107,55 @@ void Widget::add_param_from_config(CONFIG_FILE *config)
     rows++;
 }
 
+CONFIG_FILE Widget::get_param_from_item(int row)
+{
+    CONFIG_FILE row_config;
+
+    row_config.dataname = ((QLineEdit *)(ui->tableWidget->cellWidget(row-1, 0)))->text();
+
+    row_config.canid = ((QLineEdit *)(ui->tableWidget->cellWidget(row-1, 1)))->text();
+
+    int index = ((QComboBox *)(ui->tableWidget->cellWidget(row-1, 2)))->currentIndex();
+    switch (index){
+    case 0:
+        row_config.datatype = 1;
+        break;
+    case 1:
+        row_config.datatype = 2;
+        break;
+    case 2:
+        row_config.datatype = 4;
+        break;
+    default:
+        row_config.datatype = 1;
+        break;
+    }
+
+    row_config.data_addr = ((QSpinBox *)(ui->tableWidget->cellWidget(row-1, 3)))->value();
+
+    row_config.data_len = ((QSpinBox *)(ui->tableWidget->cellWidget(row-1, 4)))->value();
+
+    row_config.bit_addr = ((QSpinBox *)(ui->tableWidget->cellWidget(row-1, 5)))->value();
+
+    row_config.multi = ((QDoubleSpinBox *)(ui->tableWidget->cellWidget(row-1, 6)))->value();
+
+    row_config.add = ((QSpinBox *)(ui->tableWidget->cellWidget(row-1, 7)))->value();
+
+    row_config.unit = ((QLineEdit *)(ui->tableWidget->cellWidget(row-1, 8)))->text();
+
+    return row_config;
+}
+
 
 void Widget::on_add_param_clicked()
 {
+    if(rows != 0)   //与上一行相同
+    {
+       CONFIG_FILE config =  get_param_from_item(rows);
+       add_param_from_config(&config);
+       return;
+    }
+
     ui->tableWidget->insertRow(rows);
 
     QLineEdit *param_name = new QLineEdit(this);
@@ -187,11 +234,12 @@ void Widget::on_del_param_clicked()
 void Widget::on_import_config_file_clicked()
 {
     QByteArray json_str;
-    QString filepath = QFileDialog::getOpenFileName(this,"打开配置文件","./","*");
-    qDebug()<<"filepath:"<<filepath;
-    QFile file(filepath);
+    m_filepath = QFileDialog::getOpenFileName(this,"打开配置文件","./","*");
+    qDebug()<<"filepath:"<<m_filepath;
+    QFile file(m_filepath);
     file.open(QIODevice::ReadOnly|QIODevice::Text);
     json_str = file.readAll();
+    file.close();
     qDebug()<<json_str;
     if(root != NULL)
     {
@@ -253,10 +301,128 @@ void Widget::on_import_config_file_clicked()
 
 void Widget::on_export_config_file_clicked()
 {
+    if(rows < 1)
+        return;
+    m_filepath.clear();
+    m_filepath = QFileDialog::getSaveFileName(this,"保存配置文件","./","*");
+    if(!m_filepath.isEmpty())
+    {
+        CONFIG_FILE config_tmp;
 
+        cJSON *root = cJSON_CreateObject();  //创建对象
+        cJSON *candecode_config = cJSON_CreateArray();   //创建数组
+        for(int i=1; i<= rows; i++)
+        {
+            config_tmp = get_param_from_item(i);
+            cJSON *param = cJSON_CreateObject();
+            cJSON_AddItemToObject(param,"dataname",cJSON_CreateString(config_tmp.dataname.toUtf8().data()));
+            cJSON_AddItemToObject(param,"canid",cJSON_CreateString(config_tmp.canid.toUtf8().data()));
+            cJSON_AddItemToObject(param,"datatype",cJSON_CreateNumber(config_tmp.datatype));
+            cJSON_AddItemToObject(param,"dataaddr",cJSON_CreateNumber(config_tmp.data_addr));
+            cJSON_AddItemToObject(param,"length",cJSON_CreateNumber(config_tmp.data_len));
+            cJSON_AddItemToObject(param,"bitaddr",cJSON_CreateNumber(config_tmp.bit_addr));
+            cJSON_AddItemToObject(param,"multiplenum",cJSON_CreateNumber(config_tmp.multi));
+            cJSON_AddItemToObject(param,"additionnum",cJSON_CreateNumber(config_tmp.add));
+            cJSON_AddItemToObject(param,"unit",cJSON_CreateString(config_tmp.unit.toUtf8().data()));
+            cJSON_AddItemToArray(candecode_config,param);    //添加至json数据
+        }
+        cJSON_AddItemToObject(root,"candecode_config",candecode_config); //将数组添加至对象
+
+        char *json_str = cJSON_PrintUnformatted(root);
+        qDebug("%s",json_str);
+        QByteArray json_data(json_str,strlen(json_str));
+        qDebug()<<"len = "<<json_data.length();
+
+        for(int i=0; i<json_data.length(); i++)
+        {
+            if(json_data.at(i) == '[' )
+                json_data.insert(++i,'\n');
+
+            if(json_data.at(i) == ']')
+            {
+                json_data.insert(i++,'\n');
+                json_data.insert(++i,'\n');
+            }
+
+            if((json_data.at(i) == ',' && json_data.at(i-1) == '}'))
+                json_data.insert(++i,'\n');
+        }
+
+        qDebug()<<"len = "<<json_data.length();
+        /*********    保存文件   *********/
+        QFile file(m_filepath);
+        file.open(QIODevice::WriteOnly |QIODevice::Text | QIODevice::Truncate);
+        file.write(json_data);
+        file.close();
+
+        cJSON_Delete(root);
+    }
 }
 
 void Widget::on_save_config_file_clicked()
 {
+   if(rows < 1) //无数据不保存
+       return;
 
+
+   if(m_filepath.isEmpty())
+   {
+        on_export_config_file_clicked();
+        return;
+   }
+
+   int ret = QMessageBox::information(this,"提示","将覆盖最后一次导入的文件,是否继续保存？",QMessageBox::Yes|QMessageBox::No,QMessageBox::No); //
+   if(ret == QMessageBox::No)
+        return;
+
+
+   CONFIG_FILE config_tmp;
+
+   cJSON *root = cJSON_CreateObject();  //创建对象
+   cJSON *candecode_config = cJSON_CreateArray();   //创建数组
+   for(int i=1; i<= rows; i++)
+   {
+       config_tmp = get_param_from_item(i);
+       cJSON *param = cJSON_CreateObject();
+       cJSON_AddItemToObject(param,"dataname",cJSON_CreateString(config_tmp.dataname.toUtf8().data()));
+       cJSON_AddItemToObject(param,"canid",cJSON_CreateString(config_tmp.canid.toUtf8().data()));
+       cJSON_AddItemToObject(param,"datatype",cJSON_CreateNumber(config_tmp.datatype));
+       cJSON_AddItemToObject(param,"dataaddr",cJSON_CreateNumber(config_tmp.data_addr));
+       cJSON_AddItemToObject(param,"length",cJSON_CreateNumber(config_tmp.data_len));
+       cJSON_AddItemToObject(param,"bitaddr",cJSON_CreateNumber(config_tmp.bit_addr));
+       cJSON_AddItemToObject(param,"multiplenum",cJSON_CreateNumber(config_tmp.multi));
+       cJSON_AddItemToObject(param,"additionnum",cJSON_CreateNumber(config_tmp.add));
+       cJSON_AddItemToObject(param,"unit",cJSON_CreateString(config_tmp.unit.toUtf8().data()));
+       cJSON_AddItemToArray(candecode_config,param);    //添加至json数据
+   }
+   cJSON_AddItemToObject(root,"candecode_config",candecode_config); //将数组添加至对象
+
+   char *json_str = cJSON_PrintUnformatted(root);
+   qDebug("%s",json_str);
+   QByteArray json_data(json_str,strlen(json_str));
+   qDebug()<<"len = "<<json_data.length();
+
+   for(int i=0; i<json_data.length(); i++)
+   {
+       if(json_data.at(i) == '[' )
+           json_data.insert(++i,'\n');
+
+       if(json_data.at(i) == ']')
+       {
+           json_data.insert(i++,'\n');
+           json_data.insert(++i,'\n');
+       }
+
+       if((json_data.at(i) == ',' && json_data.at(i-1) == '}'))
+           json_data.insert(++i,'\n');
+   }
+
+   qDebug()<<"len = "<<json_data.length();
+   /*********    保存文件   *********/
+   QFile file(m_filepath);
+   file.open(QIODevice::WriteOnly |QIODevice::Text | QIODevice::Truncate);
+   file.write(json_data);
+   file.close();
+
+   cJSON_Delete(root);
 }
