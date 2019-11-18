@@ -6,7 +6,7 @@ Widget::Widget(QWidget *parent) :
     ui(new Ui::Widget)
 {
     ui->setupUi(this);
-    this->setWindowTitle("中联智能参数配置工具V1.1");
+    this->setWindowTitle("中联智能参数配置工具V1.2");
     rows = 0;
     cols = 9;
     m_filepath.clear();
@@ -22,6 +22,7 @@ Widget::Widget(QWidget *parent) :
 
 //    ui->tableWidget->setSelectionBehavior(QAbstractItemView::SelectRows);   //只选中一行
 //    ui->tableWidget->setSelectionMode(QAbstractItemView::SingleSelection);  //不允许选择多行
+    setAcceptDrops(true);
 }
 
 Widget::~Widget()
@@ -194,6 +195,136 @@ bool Widget::check_param_config()
     return true;
 }
 
+bool Widget::import_config_from_file(QString filename)
+{
+    if(filename.isEmpty())
+        return false;
+
+    int ret = 0;
+    m_filepath = filename;
+    QByteArray json_str;
+    QFile file(m_filepath);
+    file.open(QIODevice::ReadOnly|QIODevice::Text);
+    json_str = file.readAll();
+    file.close();
+    qDebug()<<json_str;
+    if(root != NULL)
+    {
+        cJSON_Delete(root);
+        root = NULL;
+    }
+
+    root = cJSON_Parse(json_str.data());
+    if(root)
+    {
+        qDebug()<<__LINE__;
+        cJSON *candecode_config = cJSON_GetObjectItem(root,"candecode_config");
+        if(candecode_config && candecode_config->type == cJSON_Array)
+        {
+            int size = cJSON_GetArraySize(candecode_config);
+            qDebug()<<"size:"<<size;
+            CONFIG_FILE config;
+            for(int i=0; i<size; i++)
+            {
+                cJSON *param = cJSON_GetArrayItem(candecode_config, i);
+                if(param && param->type == cJSON_Object)    //获取到参数
+                {
+                    cJSON *dataname = cJSON_GetObjectItem(param, "dataname");
+                    cJSON *canid = cJSON_GetObjectItem(param,"canid");
+                    cJSON *datatype = cJSON_GetObjectItem(param,"datatype");
+                    cJSON *data_addr = cJSON_GetObjectItem(param,"dataaddr");
+                    cJSON *data_len = cJSON_GetObjectItem(param,"length");
+                    cJSON *bit_addr = cJSON_GetObjectItem(param,"bitaddr");
+                    cJSON *multi = cJSON_GetObjectItem(param,"multiplenum");
+                    cJSON *add = cJSON_GetObjectItem(param,"additionnum");
+                    cJSON *unit = cJSON_GetObjectItem(param,"unit");
+
+                    if(dataname && canid && datatype && data_addr && data_len &&
+                        bit_addr && multi && add && unit)
+                    {
+                        if(dataname->type == cJSON_String && canid->type == cJSON_String && datatype->type == cJSON_Number &&
+                           data_addr->type == cJSON_Number && data_len->type == cJSON_Number && bit_addr->type == cJSON_Number &&
+                           multi->type == cJSON_Number && add->type == cJSON_Number && unit->type == cJSON_String ) //类型判断
+                        {
+                            config.dataname = QString(dataname->valuestring);
+                            config.canid = QString(canid->valuestring);
+                            config.datatype = datatype->valueint;
+                            config.data_addr = data_addr->valueint;
+                            config.data_len = data_len->valueint;
+                            config.bit_addr = bit_addr->valueint;
+                            config.multi = multi->valuedouble;
+                            config.add = add->valueint;
+                            config.unit = QString(unit->valuestring);
+                            add_param_from_config(&config); //添加显示
+                        }
+                        else
+                            ret++;
+                    }
+                    else
+                        ret++;
+                }
+                else
+                {
+                    QMessageBox::warning(this,"提示","找不到关键字段,未获取到参数信息！"); //
+                    return false;
+                }
+            }
+        }
+        else
+        {
+            QMessageBox::warning(this,"提示","未找到关键字段,请检查配置文件是否正确！"); //
+            qDebug()<<"解析出错!";
+            return false;
+        }
+    }
+    else
+    {
+        QMessageBox::warning(this,"提示","加载配置文件失败，请检查JSON格式是否有误！"); //
+        qDebug()<<"解析失败!";
+        return false;
+    }
+
+    if(ret)
+    {
+        QString msg = QString::number(ret) + "条数据解析失败，请检查参数字段名与数据类型是否正确!";
+        QMessageBox::warning(this,"提示",msg); //
+        return false;
+    }
+    return true;
+}
+
+void Widget::dropEvent(QDropEvent *event)
+{
+    qDebug()<<"dropEvent";
+    const QMimeData *mimeData = event->mimeData(); //获取minmeData
+    if(mimeData->hasUrls())
+    {
+        QList<QUrl> path_lists = mimeData->urls();
+        int file_nums = path_lists.size();
+        for(int i=0; i<file_nums; i++)
+        {
+            QString filename = path_lists.at(i).toLocalFile();
+            if(false == import_config_from_file(filename))
+            {
+                break;
+            }
+        }
+    }
+}
+
+void Widget::dragEnterEvent(QDragEnterEvent *event)
+{
+    qDebug()<<"dragEnterEvent";
+    if(event->mimeData()->hasUrls())
+    {
+        event->acceptProposedAction(); //接收动作
+    }
+    else
+    {
+        event->ignore();
+    }
+}
+
 
 void Widget::on_add_param_clicked()
 {
@@ -283,94 +414,9 @@ void Widget::on_del_param_clicked()
 
 void Widget::on_import_config_file_clicked()
 {
-    int ret = 0;
-    QByteArray json_str;
-    m_filepath = QFileDialog::getOpenFileName(this,"打开配置文件","./","*");
-    qDebug()<<"filepath:"<<m_filepath;
-    QFile file(m_filepath);
-    file.open(QIODevice::ReadOnly|QIODevice::Text);
-    json_str = file.readAll();
-    file.close();
-    qDebug()<<json_str;
-    if(root != NULL)
-    {
-        cJSON_Delete(root);
-        root = NULL;
-    }
-    qDebug()<<__LINE__;
-    root = cJSON_Parse(json_str.data());
-    if(root)
-    {
-        qDebug()<<__LINE__;
-        cJSON *candecode_config = cJSON_GetObjectItem(root,"candecode_config");
-        if(candecode_config && candecode_config->type == cJSON_Array)
-        {
-            int size = cJSON_GetArraySize(candecode_config);
-            qDebug()<<"size:"<<size;
-            CONFIG_FILE config;
-            for(int i=0; i<size; i++)
-            {
-                cJSON *param = cJSON_GetArrayItem(candecode_config, i);
-                if(param && param->type == cJSON_Object)    //获取到参数
-                {
-                    cJSON *dataname = cJSON_GetObjectItem(param, "dataname");
-                    cJSON *canid = cJSON_GetObjectItem(param,"canid");
-                    cJSON *datatype = cJSON_GetObjectItem(param,"datatype");
-                    cJSON *data_addr = cJSON_GetObjectItem(param,"dataaddr");
-                    cJSON *data_len = cJSON_GetObjectItem(param,"length");
-                    cJSON *bit_addr = cJSON_GetObjectItem(param,"bitaddr");
-                    cJSON *multi = cJSON_GetObjectItem(param,"multiplenum");
-                    cJSON *add = cJSON_GetObjectItem(param,"additionnum");
-                    cJSON *unit = cJSON_GetObjectItem(param,"unit");
-
-                    if(dataname && canid && datatype && data_addr && data_len &&
-                        bit_addr && multi && add && unit)
-                    {
-                        if(dataname->type == cJSON_String && canid->type == cJSON_String && datatype->type == cJSON_Number &&
-                           data_addr->type == cJSON_Number && data_len->type == cJSON_Number && bit_addr->type == cJSON_Number &&
-                           multi->type == cJSON_Number && add->type == cJSON_Number && unit->type == cJSON_String ) //类型判断
-                        {
-                            config.dataname = QString(dataname->valuestring);
-                            config.canid = QString(canid->valuestring);
-                            config.datatype = datatype->valueint;
-                            config.data_addr = data_addr->valueint;
-                            config.data_len = data_len->valueint;
-                            config.bit_addr = bit_addr->valueint;
-                            config.multi = multi->valuedouble;
-                            config.add = add->valueint;
-                            config.unit = QString(unit->valuestring);
-                            add_param_from_config(&config); //添加显示
-                        }
-                        else
-                            ret++;
-                    }
-                    else
-                        ret++;
-                }
-                else
-                {
-                    QMessageBox::warning(this,"提示","找不到关键字段,未获取到参数信息！"); //
-                    return;
-                }
-            }
-        }
-        else
-        {
-            QMessageBox::warning(this,"提示","未找到关键字段,请检查配置文件是否正确！"); //
-            qDebug()<<"解析出错!";
-        }
-    }
-    else
-    {
-        QMessageBox::warning(this,"提示","加载配置文件失败，请检查JSON格式是否有误！"); //
-        qDebug()<<"解析失败!";
-    }
-
-    if(ret)
-    {
-        QString msg = QString::number(ret) + "条数据解析失败，请检查参数字段名与数据类型是否正确!";
-        QMessageBox::warning(this,"提示",msg); //
-    }
+    QString file_name = QFileDialog::getOpenFileName(this,"打开配置文件","./","*");
+    qDebug()<<"filepath:"<<file_name;
+    import_config_from_file(file_name);
 }
 
 void Widget::on_export_config_file_clicked()
