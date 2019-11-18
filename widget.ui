@@ -51,7 +51,7 @@
      </column>
      <column>
       <property name="text">
-       <string>结果乘以10的n次方</string>
+       <string>结果乘以n</string>
       </property>
      </column>
      <column>
@@ -134,7 +134,21 @@
        </property>
       </spacer>
      </item>
+     <item>
+      <widget class="QPushButton" name="pushButton">
+       <property name="text">
+        <string>清空参数</string>
+       </property>
+      </widget>
+     </item>
     </layout>
+   </item>
+   <item row="0" column="2">
+    <widget class="QPushButton" name="save_config_file">
+     <property name="text">
+      <string>保存配置</string>
+     </property>
+    </widget>
    </item>
    <item row="0" column="3">
     <layout class="QHBoxLayout" name="horizontalLayout">
@@ -192,13 +206,6 @@
       </spacer>
      </item>
     </layout>
-   </item>
-   <item row="0" column="2">
-    <widget class="QPushButton" name="save_config_file">
-     <property name="text">
-      <string>保存配置</string>
-     </property>
-    </widget>
    </item>
   </layout>
  </widget>

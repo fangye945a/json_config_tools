@@ -42,6 +42,7 @@ public:
     ~Widget();
     void add_param_from_config(CONFIG_FILE *config);    //添加一行参数
     CONFIG_FILE get_param_from_item(int row); // 获得某一行的配置信息
+    bool check_param_config();                 //检查参数合法性
 
 private slots:
     void on_add_param_clicked();
@@ -53,6 +54,8 @@ private slots:
     void on_export_config_file_clicked();
 
     void on_save_config_file_clicked();
+
+    void on_pushButton_clicked();
 
 private:
     Ui::Widget *ui;
